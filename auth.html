@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access AgriPrice Hub</title>
+    <script src="tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="green-yellow-theme auth-page min-h-screen bg-slate-100 text-slate-800">
+    <main class="min-h-screen grid lg:grid-cols-2">
+        <section class="auth-visual hidden lg:flex flex-col justify-between p-12 text-white">
+            <a href="index.html" class="flex items-center gap-3 w-fit">
+                <span class="bg-agri-500 p-2 rounded-lg"><i class="fa-solid fa-seedling text-xl"></i></span>
+                <span class="text-xl font-bold">AgriPrice<span class="text-agri-500">Hub</span></span>
+            </a>
+            <div class="max-w-lg">
+                <p class="text-xs uppercase tracking-[0.2em] text-emerald-300 font-semibold mb-4">Agricultural price intelligence</p>
+                <h1 class="text-4xl font-extrabold leading-tight">Make every mandi decision with clearer market signals.</h1>
+                <p class="mt-5 text-emerald-100 leading-relaxed">Track prices, compare regional spreads, and use practical forecasts from one focused workspace.</p>
+                <div class="mt-8 grid grid-cols-3 gap-3 text-xs">
+                    <div class="border border-emerald-700/70 rounded-xl p-3 bg-emerald-950/40"><strong class="block text-lg text-white">125+</strong>Mandis tracked</div>
+                    <div class="border border-emerald-700/70 rounded-xl p-3 bg-emerald-950/40"><strong class="block text-lg text-white">98.4%</strong>Data quality</div>
+                    <div class="border border-emerald-700/70 rounded-xl p-3 bg-emerald-950/40"><strong class="block text-lg text-white">30 day</strong>Forecasts</div>
+                </div>
+            </div>
+            <p class="text-xs text-emerald-300">Secure demo access for farmers, traders, and data engineers.</p>
+        </section>
+
+        <section class="flex items-center justify-center p-5 sm:p-8">
+            <div class="w-full max-w-md">
+                <div class="flex items-center justify-between mb-8">
+                    <a href="index.html" class="flex items-center gap-2 text-slate-700 font-bold lg:hidden"><span class="bg-agri-600 text-white p-2 rounded-lg"><i class="fa-solid fa-seedling"></i></span>AgriPriceHub</a>
+                    <div class="flex items-center gap-3">
+                        <label for="languageSelector" class="sr-only">Language</label>
+                        <select id="languageSelector" onchange="setLanguage(this.value)" aria-label="Language" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="en">English</option>
+                            <option value="hi">हिन्दी</option>
+                            <option value="pa">ਪੰਜਾਬੀ</option>
+                        </select>
+                        <a href="index.html" class="text-xs text-slate-500 hover:text-agri-700"><i class="fa-solid fa-arrow-left mr-1"></i>Back to home</a>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-xl p-6 sm:p-8">
+                    <div class="mb-6">
+                        <p class="text-xs font-bold uppercase tracking-wider text-agri-700">Welcome back</p>
+                        <h2 id="authTitle" class="text-2xl font-extrabold text-slate-900 mt-1">Sign in to your hub</h2>
+                        <p id="authSubtitle" class="text-sm text-slate-500 mt-2">Use your account to continue to your market dashboard.</p>
+                    </div>
+
+                    <div class="flex p-1 bg-slate-100 rounded-lg mb-6" role="tablist">
+                        <button type="button" id="loginTab" class="auth-tab active flex-1 py-2 rounded-md text-sm font-semibold" onclick="switchAuthMode('login')">Log in</button>
+                        <button type="button" id="registerTab" class="auth-tab flex-1 py-2 rounded-md text-sm font-semibold text-slate-500" onclick="switchAuthMode('register')">Create account</button>
+                    </div>
+
+                    <div id="authMessage" class="hidden mb-4 rounded-lg p-3 text-xs" role="alert"></div>
+
+                    <form id="loginForm" class="space-y-4" onsubmit="submitLogin(event)">
+                        <div>
+                            <label for="loginEmail" class="block text-xs font-semibold text-slate-700 mb-1.5">Email address</label>
+                            <input id="loginEmail" type="email" autocomplete="email" required placeholder="you@example.com" class="auth-input">
+                        </div>
+                        <div>
+                            <label for="loginPassword" class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
+                            <div class="relative"><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter your password" class="auth-input pr-11"><button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)" aria-label="Show password"><i class="fa-regular fa-eye"></i></button></div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label for="loginCaptchaInput" class="block text-xs font-semibold text-slate-700">Security code</label>
+                                <button type="button" onclick="refreshLoginCaptcha()" class="text-xs font-semibold text-agri-700 hover:underline" aria-label="Generate a new security code" title="Generate a new code"><i class="fa-solid fa-rotate"></i> New code</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 items-center">
+                                <output id="loginCaptchaCode" class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center font-mono text-lg font-bold tracking-[0.25em] text-slate-800 select-none" aria-live="polite"></output>
+                                <input id="loginCaptchaInput" type="text" required minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter code" class="auth-input" oninput="this.value = this.value.toUpperCase()">
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-xs">
+                            <label class="flex items-center gap-2 text-slate-600"><input id="rememberMe" type="checkbox" class="accent-emerald-600"> Remember me</label>
+                            <button type="button" onclick="fillDemoCredentials()" class="font-semibold text-agri-700 hover:underline">Use demo account</button>
+                        </div>
+                        <button id="loginSubmit" type="submit" class="auth-submit"><i class="fa-solid fa-right-to-bracket"></i> Log in to AgriPrice Hub</button>
+                    </form>
+
+                    <form id="registerForm" class="hidden space-y-4" onsubmit="submitRegistration(event)">
+                        <div>
+                            <label for="registerName" class="block text-xs font-semibold text-slate-700 mb-1.5">Full name</label>
+                            <input id="registerName" type="text" autocomplete="name" required placeholder="e.g. Rajesh Kumar" class="auth-input">
+                        </div>
+                        <div>
+                            <label for="registerEmail" class="block text-xs font-semibold text-slate-700 mb-1.5">Email address</label>
+                            <input id="registerEmail" type="email" autocomplete="email" required placeholder="you@example.com" class="auth-input">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label for="registerRole" class="block text-xs font-semibold text-slate-700 mb-1.5">Role</label><select id="registerRole" class="auth-input"><option value="farmer">Farmer</option><option value="trader">Trader</option></select></div>
+                            <div><label for="registerState" class="block text-xs font-semibold text-slate-700 mb-1.5">State / UT</label><select id="registerState" required class="auth-input"><option value="" disabled selected>Select your state or UT</option></select></div>
+                        </div>
+                        <div>
+                            <label for="registerPassword" class="block text-xs font-semibold text-slate-700 mb-1.5">Create password</label>
+                            <div class="relative"><input id="registerPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" class="auth-input pr-11" oninput="updatePasswordStrength(this.value)"><button type="button" class="password-toggle" onclick="togglePassword('registerPassword', this)" aria-label="Show password"><i class="fa-regular fa-eye"></i></button></div>
+                            <div class="mt-2 h-1 bg-slate-200 rounded-full overflow-hidden"><div id="passwordStrengthBar" class="h-full w-0 transition-all"></div></div>
+                            <p id="passwordStrengthText" class="text-[11px] text-slate-400 mt-1">Use letters, numbers, and symbols for a stronger password.</p>
+                        </div>
+                        <div id="registerTurnstile" class="flex justify-center" aria-label="Cloudflare security check"></div>
+                        <label class="flex items-start gap-2 text-xs text-slate-600"><input id="acceptTerms" type="checkbox" required class="accent-emerald-600 mt-0.5"> I agree to use this demo workspace responsibly.</label>
+                        <button type="submit" class="auth-submit"><i class="fa-solid fa-user-plus"></i> Create account and continue</button>
+                    </form>
+                </div>
+                <p class="text-center text-[11px] text-slate-400 mt-5">Demo account: farmer@agriprice.org / demo1234</p>
+            </div>
+        </section>
+    </main>
+    <script src="translations.js"></script>
+    <script src="auth.js"></script>
+</body>
+</html>

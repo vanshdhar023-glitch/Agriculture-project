@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fasal Drishti - Agricultural Price Intelligence</title>
+    <!-- Tailwind CSS -->
+    <script src="tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF report generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+    <!-- Three.js for the interactive 3D forecast bars -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
+    <!-- Leaflet CSS & JS for Interactive Geographic Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="green-yellow-theme bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col custom-scrollbar pt-16">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-emerald-900 text-white fixed inset-x-0 top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Logo & Brand -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goHome()">
+                <div class="bg-agri-500 text-white p-2 rounded-lg flex items-center justify-center">
+                    <i class="fa-solid fa-seedling text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-lg sm:text-xl font-bold tracking-tight text-white block leading-none">FasalDrishti<span class="text-agri-500"></span></span>
+                    <span class="hidden sm:block text-[10px] text-emerald-300 font-mono tracking-wider uppercase">Price Intelligence & Pipeline</span>
+                </div>
+            </div>
+
+            <!-- Global Search Bar (Visible when Logged In) -->
+            <div id="headerGlobalSearch" class="hidden md:flex flex-1 max-w-md relative">
+                <input type="text" id="globalSearchInput" placeholder="Search crops, mandis, districts or states..." 
+                    class="w-full bg-emerald-950/60 border border-emerald-800/80 rounded-full py-1.5 pl-10 pr-4 text-xs text-emerald-100 placeholder-emerald-400 focus:outline-none focus:ring-2 focus:ring-agri-500"
+                    onkeyup="handleGlobalSearch(this.value)">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-emerald-400 text-xs"></i>
+                <div id="searchResultsDropdown" class="hidden absolute left-0 right-0 top-10 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 z-50 max-h-80 overflow-y-auto"></div>
+            </div>
+
+            <!-- MongoDB Database Status Indicator -->
+            <div id="headerDbStatus" class="hidden sm:flex items-center gap-2 bg-emerald-950/80 border border-emerald-700/60 px-3 py-1 rounded-full text-[11px] text-emerald-200 font-mono shadow-inner" title="MongoDB Database Status">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="headerDbText">MongoDB: Connected</span>
+            </div>
+
+            <label for="languageSelector" class="sr-only">Language</label>
+            <select id="languageSelector" onchange="setLanguage(this.value)" aria-label="Language" class="w-[68px] sm:w-[92px] bg-emerald-950/80 border border-emerald-700/60 rounded-lg px-1.5 py-1.5 text-[11px] text-emerald-100 focus:outline-none focus:ring-2 focus:ring-agri-500">
+                <option value="en">English</option>
+                <option value="hi">हिन्दी</option>
+                <option value="pa">ਪੰਜਾਬੀ</option>
+            </select>
+
+            <!-- Header Actions & Auth Status -->
+            <div class="flex items-center space-x-1 sm:space-x-3">
+                <!-- Logged Out View Buttons -->
+                <div id="headerLoggedOutActions" class="flex items-center space-x-1 sm:space-x-2">
+                    <button onclick="goHome()" class="hidden sm:inline-flex text-xs font-medium text-emerald-200 hover:text-white px-2 py-1.5 rounded transition-colors"><i class="fa-solid fa-house mr-1"></i>Home</button>
+                    <button onclick="window.location.href='auth.html?mode=login'" class="bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1.5 rounded-lg border border-emerald-600/50 transition-colors">Log In</button>
+                    <button onclick="window.location.href='auth.html?mode=register'" class="bg-agri-500 hover:bg-agri-600 text-white text-[10px] sm:text-xs font-semibold px-2 sm:px-3.5 py-1.5 rounded-lg transition-colors shadow-sm">Register</button>
+                </div>
+
+                <!-- Logged In View Controls -->
+                <div id="headerLoggedInActions" class="hidden flex items-center space-x-3">
+                    <!-- Notifications -->
+                    <div id="notificationMenuWrapper" class="relative">
+                        <button type="button" id="notificationButton" onclick="toggleNotifications()" aria-label="Notifications, 3 unread" aria-expanded="false" aria-controls="notificationPanel" class="relative p-2 text-emerald-200 hover:text-white rounded-lg hover:bg-emerald-900/50 transition-colors">
+                            <i class="fa-regular fa-bell text-lg"></i>
+                            <span id="notifBadge" class="absolute top-1 right-1 bg-amber-500 text-slate-900 font-bold text-[10px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center">3</span>
+                        </button>
+                        <section id="notificationPanel" class="hidden absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-1.5rem))] bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 z-[70] overflow-hidden" aria-labelledby="notificationHeading">
+                            <div class="px-4 py-3 flex items-center justify-between border-b border-slate-200">
+                                <div>
+                                    <h2 id="notificationHeading" class="text-sm font-bold text-slate-900">Notifications</h2>
+                                    <p class="text-[10px] text-slate-500">Market prices and account updates</p>
+                                </div>
+                                <button type="button" onclick="closeNotifications()" class="w-7 h-7 inline-flex items-center justify-center rounded text-slate-500 hover:bg-slate-100" aria-label="Close notifications"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="notificationList" class="max-h-[min(60vh,24rem)] overflow-y-auto" aria-live="polite"></div>
+                            <div class="px-3 py-2 flex items-center justify-between border-t border-slate-200 bg-slate-50">
+                                <button type="button" onclick="markAllNotificationsRead()" class="text-[11px] font-semibold text-agri-700 hover:underline">Mark all read</button>
+                                <button type="button" onclick="clearNotifications()" class="text-[11px] font-semibold text-slate-500 hover:text-red-700">Clear all</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Architecture Modal Button -->
+                    <button onclick="openArchitectureModal()" class="p-2 text-emerald-200 hover:text-white rounded-lg hover:bg-emerald-900/50 transition-colors" title="System Architecture & Flow">
+                        <i class="fa-solid fa-diagram-project text-lg"></i>
+                    </button>
+
+                    <!-- Profile & Logout Dropdown -->
+                    <div id="profileMenuWrapper" class="relative">
+                        <div class="flex items-center space-x-2 bg-emerald-800 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border border-emerald-600">
+                            <button type="button" id="profileTrigger" onclick="toggleProfileCard()" aria-label="Open profile details" aria-expanded="false" aria-controls="profileDetailsCard" class="flex items-center space-x-2">
+                                <div id="profileAvatar" class="w-6 h-6 rounded-full bg-agri-500 text-white flex items-center justify-center font-bold text-[11px]">R</div>
+                                <span id="profileName" class="hidden sm:inline">Rajesh Kumar</span>
+                            </button>
+                            <button onclick="logoutUser()" title="Logout" class="text-emerald-300 hover:text-white ml-1 pl-1 border-l border-emerald-600"><i class="fa-solid fa-right-from-bracket"></i></button>
+                        </div>
+                        <section id="profileDetailsCard" class="hidden absolute right-0 top-full mt-2 w-72 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 z-[70] overflow-hidden" aria-labelledby="profileDetailsHeading">
+                            <div class="bg-emerald-950 px-4 py-4 text-white">
+                                <div class="flex items-center gap-3">
+                                    <div id="profileCardAvatar" class="w-11 h-11 rounded-full bg-agri-500 flex items-center justify-center font-bold text-lg">R</div>
+                                    <div class="min-w-0">
+                                        <h2 id="profileDetailsHeading" class="font-bold truncate">Rajesh Kumar</h2>
+                                        <p id="profileCardRole" class="text-[11px] text-emerald-200">Farmer account</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-4 space-y-3 text-xs">
+                                <div class="flex items-start gap-3"><i class="fa-regular fa-envelope w-4 text-agri-700 mt-0.5"></i><div><p class="text-[10px] uppercase tracking-wide text-slate-400">Email</p><p id="profileCardEmail" class="font-semibold text-slate-700 break-all">farmer@agriprice.org</p></div></div>
+                                <div class="flex items-start gap-3"><i class="fa-solid fa-location-dot w-4 text-agri-700 mt-0.5"></i><div><p class="text-[10px] uppercase tracking-wide text-slate-400">Market base</p><p id="profileCardLocation" class="font-semibold text-slate-700">Ludhiana, Punjab</p></div></div>
+                                <div class="flex items-start gap-3"><i class="fa-solid fa-shield-halved w-4 text-agri-700 mt-0.5"></i><div><p class="text-[10px] uppercase tracking-wide text-slate-400">Access</p><p class="font-semibold text-emerald-700">All platform features enabled</p></div></div>
+                            </div>
+                            <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center">
+                                <span class="text-[10px] text-slate-500">AgriPrice Hub member</span>
+                                <button type="button" onclick="closeProfileCard()" class="text-[11px] font-semibold text-agri-700 hover:underline">Close</button>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================== -->
+    <!-- HOME / LANDING PAGE VIEW -->
+    <!-- ========================================== -->
+    <section id="landingPageView" class="flex-1 flex flex-col justify-between">
+        <!-- Hero Banner Section -->
+        <div class="hero-bg text-white py-12 lg:py-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-800/80 relative overflow-hidden">
+            <div class="hero-grid absolute inset-0 pointer-events-none"></div>
+            <div class="hero-orbit hero-orbit-one"></div>
+            <div class="hero-orbit hero-orbit-two"></div>
+            <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
+                <!-- Hero Left Content -->
+                <div class="lg:col-span-7 space-y-5 hero-copy">
+                    <div class="inline-flex items-center gap-2 bg-emerald-900/80 border border-emerald-600/60 px-3 py-1 rounded-full text-xs text-emerald-300 font-medium reveal reveal-one">
+                        <span class="w-2 h-2 rounded-full bg-agri-500 animate-pulse"></span>
+                        Real-Time Agricultural Intelligence Platform
+                    </div>
+                    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight reveal reveal-two">
+                        Transparent Mandi Prices &  Market Forecasts
+                    </h1>
+                    <p class="text-emerald-100 text-sm sm:text-base max-w-2xl leading-relaxed reveal reveal-three">
+                        AgriPrice Analytics Hub empowers Farmers, Agricultural Traders, and Data Analysts with clean, standardized price telemetry, inter-mandi arbitrage metrics, and predictive trends.
+                    </p>
+
+                    <!-- Quick Demo Role Trigger Buttons -->
+                    <div class="pt-2 space-y-2 reveal reveal-four">
+                        <p class="text-xs font-semibold text-emerald-300 uppercase tracking-wider">Instant Demo Access:</p>
+                        <div class="flex flex-wrap gap-2.5">
+                            <button onclick="loginDemo('farmer')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-2 rounded-lg text-xs flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md">
+                                <i class="fa-solid fa-wheat-awn text-amber-300"></i> Demo as Farmer
+                            </button>
+                            <button onclick="loginDemo('trader')" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-3.5 py-2 rounded-lg text-xs flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md">
+                                <i class="fa-solid fa-arrow-trend-up text-white"></i> Demo as Trader
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Market Pulse Visual -->
+                <div class="lg:col-span-5 reveal reveal-five">
+                    <div class="market-pulse-panel">
+                        <div class="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+                            <div>
+                                <div class="flex items-center gap-2 text-xs text-emerald-300 font-semibold uppercase tracking-wider">
+                                    <span class="live-dot"></span> Live market pulse
+                                </div>
+                                <h2 class="text-2xl font-bold text-white mt-2">Price signals at a glance</h2>
+                            </div>
+                            <span class="pulse-chip"><i class="fa-solid fa-arrow-trend-up mr-1"></i>+6.2%</span>
+                        </div>
+
+                        <div class="pulse-highlight mt-5">
+                            <div>
+                                <p class="text-xs text-emerald-200">National modal average</p>
+                                <p class="text-4xl font-extrabold text-white mt-1">₹2,350<span class="text-sm font-medium text-emerald-300"> / Qtl</span></p>
+                            </div>
+                            <div class="mini-chart" aria-label="Upward price trend">
+                                <span style="height: 25%"></span><span style="height: 42%"></span><span style="height: 35%"></span><span style="height: 58%"></span><span style="height: 52%"></span><span style="height: 78%"></span><span style="height: 92%"></span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 mt-5 text-xs">
+                            <div class="pulse-row"><span><i class="fa-solid fa-wheat-awn text-amber-300 mr-2"></i>Wheat · Ludhiana</span><strong>₹2,275 <em>+1.8%</em></strong></div>
+                            <div class="pulse-row"><span><i class="fa-solid fa-seedling text-emerald-300 mr-2"></i>Tomato · Nashik</span><strong>₹1,850 <em>+12.5%</em></strong></div>
+                            <div class="pulse-row"><span><i class="fa-solid fa-cubes-stacked text-blue-300 mr-2"></i>Cotton · Raichur</span><strong>₹6,200 <em>+3.2%</em></strong></div>
+                        </div>
+                        <div class="flex items-center justify-between mt-5 pt-4 border-t border-white/10 text-[11px] text-emerald-200">
+                            <span><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> 125 mandis reporting</span>
+                            <span>Updated just now</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="market-ticker" aria-label="Live market updates">
+            <div class="market-ticker-track">
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Wheat, Punjab <strong>₹2,275</strong> <em>+1.8%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Tomato, Maharashtra <strong>₹1,850</strong> <em>+12.5%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-down"></i> Paddy Rice, UP <strong>₹3,450</strong> <em class="down">-0.5%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Cotton, Karnataka <strong>₹6,200</strong> <em>+3.2%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Wheat, Punjab <strong>₹2,275</strong> <em>+1.8%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Tomato, Maharashtra <strong>₹1,850</strong> <em>+12.5%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-down"></i> Paddy Rice, UP <strong>₹3,450</strong> <em class="down">-0.5%</em></span>
+                <span><i class="fa-solid fa-arrow-trend-up"></i> Cotton, Karnataka <strong>₹6,200</strong> <em>+3.2%</em></span>
+            </div>
+        </div>
+
+        <!-- Live Platform Key Performance Stats Counter -->
+        <div class="bg-white border-b border-slate-200 py-6 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div class="stat-card p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-2xl sm:text-3xl font-extrabold text-agri-700">125+</p>
+                    <p class="text-xs text-slate-500 font-medium mt-1">APMC & Private Mandis</p>
+                </div>
+                <div class="stat-card p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-800">85+</p>
+                    <p class="text-xs text-slate-500 font-medium mt-1">Crops & Regional Varieties</p>
+                </div>
+                <div class="stat-card p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600">98.4%</p>
+                    <p class="text-xs text-slate-500 font-medium mt-1">Data Pipeline Quality Index</p>
+                </div>
+                <div class="stat-card p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-2xl sm:text-3xl font-extrabold text-amber-600">10,000+</p>
+                    <p class="text-xs text-slate-500 font-medium mt-1">Daily Ingested Price Records</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Core Capabilities Grid -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="text-center max-w-2xl mx-auto mb-8">
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-800">Comprehensive Agricultural Analytics Features</h2>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">Designed for end-to-end price discovery, ETL ingestion, and forecasting</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="feature-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer" onclick="loginDemo('farmer')">
+                    <div class="w-10 h-10 bg-emerald-100 text-emerald-800 rounded-xl flex items-center justify-center text-lg mb-3">
+                        <i class="fa-solid fa-building-columns"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm mb-1">Govt Mandi API Engine</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Streaming Min, Modal, and Max price telemetry directly from Government of India (data.gov.in / Agmarknet) across crops, vegetables, and fruits.</p>
+                </div>
+
+                <div class="feature-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer" onclick="loginDemo('trader')">
+                    <div class="w-10 h-10 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center text-lg mb-3">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm mb-1">Product Comparison Studio</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Thorough side-by-side comparison of any 2 products: price spreads, arrival depth, volatility, shelf-life risk, MSP benchmark, and affordability.</p>
+                </div>
+
+                <div class="feature-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer" onclick="loginDemo('farmer')">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-800 rounded-xl flex items-center justify-center text-lg mb-3">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm mb-1">AI Forecast & Union Budget</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Predictive model combining Agmarknet past trends, Indian Annual Budget agricultural outlays, and NSE Rupee exchange rate inflation dynamics.</p>
+                </div>
+
+                <div class="feature-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer" onclick="loginDemo('trader')">
+                    <div class="w-10 h-10 bg-emerald-100 text-emerald-800 rounded-xl flex items-center justify-center text-lg mb-3">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm mb-1">Nearby Mandis & Google Maps</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">GPS and city-based market exploration with affordable prices highlighting (best savings) and direct Google Maps turn-by-turn navigation.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABOUT THE PROJECT -->
+        <section id="aboutProject" class="about-project relative isolate overflow-hidden text-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center relative z-10">
+                <div class="lg:col-span-7 max-w-2xl">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-200">About the Project</p>
+                    <h2 class="mt-3 text-2xl sm:text-3xl font-extrabold leading-tight">Clearer mandi(market) information for India's agricultural community.</h2>
+                    <p class="mt-4 text-sm leading-relaxed text-white/90">Fasal Drishti is a project exploring how market prices, crop comparisons, nearby mandi discovery and price forecasts can come together in one useful workspace for farmers and traders.</p>
+                    <p class="mt-3 text-xs leading-relaxed text-white/75">The prototype combines Agrimarknet reference records with clearly marked demo samples. Forecasts and sample records are for demonstration and should not be treated as live trading advice.</p>
+                </div>
+                <div class="lg:col-span-5 border-l border-emerald-200/40 pl-5 sm:pl-7 space-y-4 text-sm">
+                    <p class="flex items-start gap-3"><i class="fa-solid fa-chart-column mt-0.5 text-amber-300"></i><span>Compare crop prices, arrival volumes and market differences.</span></p>
+                    <p class="flex items-start gap-3"><i class="fa-solid fa-map-location-dot mt-0.5 text-emerald-200"></i><span>Explore mandi locations and commodity prices by area.</span></p>
+                    <p class="flex items-start gap-3"><i class="fa-solid fa-scale-balanced mt-0.5 text-sky-200"></i><span>View prices in quintals or kilograms and compare products.</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="bg-slate-900 text-slate-400 text-xs py-6 border-t border-slate-800 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p>© 2026 "Fasal Drishti" AgriPrice Analytics Hub. Agricultural Intelligence System.</p>
+                <div class="flex items-center space-x-4">
+                    <a href="javascript:void(0)" onclick="openArchitectureModal()" class="hover:text-emerald-400">System Architecture Diagram</a>
+                    <span>•</span>
+                    <a href="auth.html?mode=login" class="hover:text-emerald-400">Portal Login</a>
+                </div>
+            </div>
+        </footer>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- MAIN DASHBOARD APPLICATION CONTAINER -->
+    <!-- ========================================== -->
+    <div id="mainDashboardView" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col gap-5">
+
+        <!-- MODULE NAVIGATION BAR -->
+        <nav class="bg-white rounded-xl shadow-sm border border-slate-200 p-1 flex items-center overflow-x-auto custom-scrollbar text-xs font-medium gap-1">
+            <button onclick="switchNavTab('dashboard')" id="nav-dashboard" class="tab-btn active px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-chart-line text-slate-500"></i> Executive Dashboard
+            </button>
+            <button onclick="switchNavTab('search')" id="nav-search" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-wheat-awn text-slate-500"></i> Mandi Prices (Govt API)
+            </button>
+            <button onclick="switchNavTab('compare')" id="nav-compare" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-scale-balanced text-slate-500"></i> Compare 2 Products
+            </button>
+            <button onclick="switchNavTab('map')" id="nav-map" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-map-location-dot text-slate-500"></i> Geographic Map & Markets
+            </button>
+            <button onclick="switchNavTab('forecasting')" id="nav-forecasting" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-wand-magic-sparkles text-slate-500"></i> AI Price Forecast (Budget & Macro)
+            </button>
+            <button onclick="switchNavTab('analytics')" id="nav-analytics" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie text-slate-500"></i> Price & Market Trend Analysis
+            </button>
+            <button onclick="switchNavTab('ingestion')" id="nav-ingestion" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-gears text-slate-500"></i> Data Ingestion
+            </button>
+            <button onclick="switchNavTab('reports')" id="nav-reports" class="tab-btn px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-file-arrow-down text-slate-500"></i> Reports & Export
+            </button>
+        </nav>
+
+        <!-- CURRENT ROLE INDICATOR BANNER -->
+        <div id="roleBanner" class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+            <div class="flex items-center gap-2">
+                <span class="bg-emerald-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded" id="roleBadge">FARMER MODE</span>
+                <span id="roleDescription">Customized for local mandi price tracking, quick alerts, and simplified regional trends.</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-500">
+                <span class="inline-flex items-center"><i class="fa-solid fa-circle text-[8px] text-emerald-500 mr-1.5 animate-pulse"></i> Agmarknet API: <strong class="text-emerald-700 ml-1">Live Connected</strong></span>
+                <span><i class="fa-solid fa-clock mr-1"></i> Updated: <strong id="headerLastUpdated">25 Sept 2026</strong></span>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 1: EXECUTIVE DASHBOARD (INTERACTIVE) -->
+        <!-- ========================================== -->
+        <section id="tab-dashboard" class="space-y-5">
+            <!-- Dashboard Action & Timeframe Header -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold text-slate-700"><i class="fa-regular fa-calendar mr-1 text-agri-600"></i> Timeframe:</span>
+                    <div class="flex items-center bg-slate-100 p-1 rounded-lg text-xs" id="dashboardTimeframeGroup">
+                        <button onclick="setDashboardTimeframe('today', this)" class="tf-btn px-3 py-1 font-semibold text-agri-800 bg-white rounded shadow-xs transition-all">Today</button>
+                        <button onclick="setDashboardTimeframe('7d', this)" class="tf-btn px-3 py-1 text-slate-600 hover:text-slate-900 rounded transition-all">7 Days</button>
+                        <button onclick="setDashboardTimeframe('30d', this)" class="tf-btn px-3 py-1 text-slate-600 hover:text-slate-900 rounded transition-all">30 Days</button>
+                        <button onclick="setDashboardTimeframe('1y', this)" class="tf-btn px-3 py-1 text-slate-600 hover:text-slate-900 rounded transition-all">1 Year</button>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs" role="group" aria-label="Dashboard quantity unit">
+                        <span class="font-bold text-slate-700">Unit:</span>
+                        <div class="flex items-center bg-slate-100 p-1 rounded-lg" id="dashboardUnitGroup">
+                            <button type="button" data-unit="qtl" aria-pressed="true" onclick="setDashboardUnit('qtl')" class="unit-btn px-3 py-1 font-semibold text-agri-800 bg-white rounded shadow-xs transition-all" title="Show prices and quantities per quintal">Qtl</button>
+                            <button type="button" data-unit="kg" aria-pressed="false" onclick="setDashboardUnit('kg')" class="unit-btn px-3 py-1 text-slate-600 hover:text-slate-900 rounded transition-all" title="Convert prices and quantities to kilograms">Kg</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fast Interactive Quick Actions -->
+                <div class="flex items-center gap-2 flex-wrap text-xs">
+                    <button onclick="switchNavTab('compare')" class="bg-agri-50 hover:bg-agri-100 text-agri-800 font-semibold px-3 py-1.5 rounded-lg border border-agri-200 flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-scale-balanced text-agri-600"></i> Compare 2 Products
+                    </button>
+                    <button onclick="switchNavTab('map')" class="bg-blue-50 hover:bg-blue-100 text-blue-800 font-semibold px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-location-crosshairs text-blue-600"></i> Affordable Mandis Near Me
+                    </button>
+                    <button onclick="syncGovApi()" id="btnDashboardSyncApi" class="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs transition-all">
+                        <i class="fa-solid fa-rotate mr-1"></i> Sync Govt API
+                    </button>
+                </div>
+            </div>
+
+            <!-- Macro Economic & Annual Budget Ticker Ribbon -->
+            <div class="bg-slate-900 text-slate-200 p-3.5 rounded-xl border border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center gap-1">
+                        <i class="fa-solid fa-chart-line-up"></i> Macro Telemetry
+                    </span>
+                    <span class="text-slate-300 font-medium">India Fiscal & Currency Impact Pipeline:</span>
+                </div>
+                <div class="flex items-center gap-4 flex-wrap text-[11px]">
+                    <span class="ticker-badge px-2.5 py-1 rounded-md text-emerald-300">
+                        <i class="fa-solid fa-building-columns mr-1 text-emerald-400"></i> Union Budget Ag: <strong>₹1.37 Lakh Cr</strong>
+                    </span>
+                    <span class="ticker-badge px-2.5 py-1 rounded-md text-amber-300">
+                        <i class="fa-solid fa-money-bill-transfer mr-1 text-amber-400"></i> NSE USD/INR: <strong>₹83.92</strong> <em class="text-[10px] not-italic text-red-400">-0.65%</em>
+                    </span>
+                    <span class="ticker-badge px-2.5 py-1 rounded-md text-blue-300">
+                        <i class="fa-solid fa-basket-shopping mr-1 text-blue-400"></i> CPI Food Inflation: <strong>5.8%</strong>
+                    </span>
+                    <span class="ticker-badge px-2.5 py-1 rounded-md text-emerald-300">
+                        <i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i> Agmarknet Mandis: <strong id="kpiActiveMandis">125</strong>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Top KPI Cards with dynamic values -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500" id="kpiAvgPriceLabel">Today's Avg Modal Price</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="kpiAvgPrice">₹2,350<span class="text-xs font-normal text-slate-400">/Qtl</span></h3>
+                        <p class="text-[11px] text-emerald-600 font-semibold mt-1" id="kpiAvgPriceDelta"><i class="fa-solid fa-arrow-trend-up mr-1"></i>+1.8% vs yesterday</p>
+                    </div>
+                    <div class="w-11 h-11 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Market Price Delta</p>
+                        <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="kpiMarketDelta">+6.2%</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Weighted agricultural basket</p>
+                    </div>
+                    <div class="w-11 h-11 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-chart-line"></i></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Active Mandis Synced</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="kpiMandisCount">125</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Across 18 States & UTs</p>
+                    </div>
+                    <div class="w-11 h-11 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-store"></i></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Crops & Varieties</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="kpiCropsCount">85</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Grains, Veggies, Fruits</p>
+                    </div>
+                    <div class="w-11 h-11 bg-amber-50 text-amber-700 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-wheat-field"></i></div>
+                </div>
+            </div>
+
+            <!-- Quick Category Filter Chips for Dashboard -->
+            <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
+                <span class="font-bold text-slate-600 whitespace-nowrap"><i class="fa-solid fa-layer-group text-agri-600 mr-1"></i> Category:</span>
+                <button onclick="filterDashboardCategory('ALL', this)" class="dash-cat-chip bg-emerald-700 text-white font-semibold px-3 py-1 rounded-full whitespace-nowrap transition-all shadow-xs">All Items (85)</button>
+                <button onclick="filterDashboardCategory('crop', this)" class="dash-cat-chip bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🌾 Crops & Food Grains</button>
+                <button onclick="filterDashboardCategory('vegetable', this)" class="dash-cat-chip bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🥕 Vegetables</button>
+                <button onclick="filterDashboardCategory('fruit', this)" class="dash-cat-chip bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🍎 Fruits</button>
+                <button onclick="filterDashboardCategory('pulse', this)" class="dash-cat-chip bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🫘 Pulses & Oilseeds</button>
+            </div>
+
+            <!-- FARMER DASHBOARD SECTION -->
+            <div id="farmerDashboardView" class="space-y-5">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <!-- Favorite Crops Quick Cards -->
+                    <div class="lg:col-span-2 bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-star text-amber-500"></i> My Favorite Crops & Local Mandis
+                            </h3>
+                            <button onclick="switchNavTab('search')" class="text-xs text-agri-600 font-semibold hover:underline">+ Add Favorite</button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="favoriteCropsGrid">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Active Alerts & Weather Context -->
+                    <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-bell text-amber-500"></i> Active Price Alerts
+                                </h3>
+                                <button onclick="openPriceAlertModal()" class="text-[11px] text-agri-700 font-semibold hover:underline">+ New Alert</button>
+                            </div>
+                            <div class="space-y-2 text-xs" id="farmerAlertsList">
+                                <div class="bg-amber-50 border-l-4 border-amber-500 p-2.5 rounded text-amber-900">
+                                    <p class="font-semibold">Wheat (Ludhiana Mandi)</p>
+                                    <p id="farmerAlertUnitText" class="text-[11px] text-amber-700">Price crossed threshold ₹2,200 (Current: ₹2,275/Qtl)</p>
+                                </div>
+                                <div class="bg-emerald-50 border-l-4 border-emerald-500 p-2.5 rounded text-emerald-900">
+                                    <p class="font-semibold">Tomato (Nashik Mandi)</p>
+                                    <p class="text-[11px] text-emerald-700">Price increased +12.5% in 48 hours</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 bg-slate-50 rounded-lg p-3 text-xs">
+                            <p class="font-medium text-slate-700"><i class="fa-solid fa-cloud-sun-rain text-blue-500 mr-1.5"></i> Monsoon Advisory - Punjab & Haryana</p>
+                            <p class="text-[11px] text-slate-500 mt-1">Arrival volume expected to drop by 10% tomorrow due to rain warnings. Favorable hold window.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fast Price Trend Preview Chart -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-slate-800 text-sm" id="farmerTrendChartTitle">Price Trend Analysis - Ludhiana Mandi</h3>
+                                <select id="farmerTrendCropSelect" onchange="changeFarmerTrendCrop(this.value)" class="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-0.5 font-medium focus:ring-1 focus:ring-agri-500">
+                                    <option value="Wheat">Wheat (Lok-1)</option>
+                                    <option value="Tomato">Tomato (Hybrid)</option>
+                                    <option value="Paddy Rice">Paddy Rice (Basmati)</option>
+                                    <option value="Potato">Potato (Jyoti)</option>
+                                    <option value="Cotton">Cotton (Shankar-6)</option>
+                                    <option value="Mustard">Mustard (Black)</option>
+                                    <option value="Apple">Apple (Royal Delicious)</option>
+                                </select>
+                            </div>
+                            <p class="text-xs text-slate-500">Spot Modal Price vs Min/Max Envelope vs Minimum Support Price (MSP)</p>
+                        </div>
+                        <div class="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs" id="trendGranularityGroup">
+                            <button onclick="setTrendGranularity('daily', this)" class="px-2.5 py-1 bg-white rounded shadow-xs font-semibold text-agri-700">Daily</button>
+                            <button onclick="setTrendGranularity('weekly', this)" class="px-2.5 py-1 text-slate-600 hover:bg-white/50 rounded">Weekly</button>
+                            <button onclick="setTrendGranularity('monthly', this)" class="px-2.5 py-1 text-slate-600 hover:bg-white/50 rounded">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="farmerTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRADER DASHBOARD SECTION -->
+            <div id="traderDashboardView" class="hidden space-y-5">
+                <!-- Arbitrage Opportunities Table -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-arrows-split-up-and-left text-agri-600"></i> High Arbitrage Inter-Mandi Spreads
+                            </h3>
+                            <p class="text-xs text-slate-500">Identify price variance between markets for profitable trading</p>
+                        </div>
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">Real-time Spreads</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500">
+                                    <th class="p-2.5">Crop / Variety</th>
+                                    <th class="p-2.5">Low Market (Buy)</th>
+                                    <th class="p-2.5">High Market (Sell)</th>
+                                    <th class="p-2.5" id="dashboardArbitrageUnit">Price Diff (₹/Qtl)</th>
+                                    <th class="p-2.5">Volatility Meter</th>
+                                    <th class="p-2.5 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100" id="traderArbitrageTable">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Trader Charts Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 text-sm mb-3">Crop Price Volatility Index</h3>
+                        <div class="h-56"><canvas id="traderVolatilityChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 text-sm mb-3">Market Arrival Volumes vs Price</h3>
+                        <div class="h-56"><canvas id="traderVolumeChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN DASHBOARD SECTION -->
+            <div id="adminDashboardView" class="hidden space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-900 text-white p-4 rounded-xl border border-slate-800">
+                        <p class="text-xs text-slate-400">Total Standardized Records</p>
+                        <h3 class="text-3xl font-bold text-emerald-400 mt-1">128,450</h3>
+                        <p class="text-[11px] text-slate-400 mt-2"><i class="fa-solid fa-database text-emerald-500 mr-1"></i> PostgreSQL Partitioned</p>
+                    </div>
+                    <div class="bg-slate-900 text-white p-4 rounded-xl border border-slate-800">
+                        <p class="text-xs text-slate-400">Pipeline Data Completeness</p>
+                        <h3 class="text-3xl font-bold text-blue-400 mt-1">98.4%</h3>
+                        <p class="text-[11px] text-slate-400 mt-2"><i class="fa-solid fa-shield-check text-blue-500 mr-1"></i> Automated Imputation Active</p>
+                    </div>
+                    <div class="bg-slate-900 text-white p-4 rounded-xl border border-slate-800">
+                        <p class="text-xs text-slate-400">Outliers / Anomaly Flagged</p>
+                        <h3 class="text-3xl font-bold text-amber-400 mt-1">42</h3>
+                        <p class="text-[11px] text-slate-400 mt-2"><i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1"></i> Requires Manual Verification</p>
+                    </div>
+                </div>
+
+                <!-- System Logs and API Status -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center justify-between">
+                            <span>Ingestion Source Health</span>
+                            <span class="text-xs font-normal text-emerald-600"><i class="fa-solid fa-circle text-[8px] mr-1"></i> 4 Sources Online</span>
+                        </h3>
+                        <div class="space-y-3 text-xs">
+                            <div class="p-3 bg-slate-50 rounded-lg flex items-center justify-between border border-slate-200">
+                                <div>
+                                    <p class="font-semibold text-slate-800">Agmarknet Govt API Sync</p>
+                                    <p class="text-[11px] text-slate-500">Every 30 Mins • Last run: 5 mins ago</p>
+                                </div>
+                                <span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">HEALTHY</span>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-lg flex items-center justify-between border border-slate-200">
+                                <div>
+                                    <p class="font-semibold text-slate-800">State Mandi Board CSV Feeds</p>
+                                    <p class="text-[11px] text-slate-500">Daily Batch Ingestion • 1,200 rows ingested</p>
+                                </div>
+                                <span class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">HEALTHY</span>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-lg flex items-center justify-between border border-slate-200">
+                                <div>
+                                    <p class="font-semibold text-slate-800">Scraped Spot Market Web Crawler</p>
+                                    <p class="text-[11px] text-slate-500">Realtime Scraper • 3 warnings logged</p>
+                                </div>
+                                <span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[10px]">WARNING</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 text-slate-200 p-5 rounded-xl border border-slate-800 font-mono text-xs">
+                        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                            <span class="text-emerald-400 font-bold"><i class="fa-solid fa-terminal mr-2"></i>Data Processing Terminal Logs</span>
+                            <span class="text-[10px] text-slate-500">LIVE</span>
+                        </div>
+                        <div class="space-y-1.5 h-40 overflow-y-auto custom-scrollbar text-[11px]" id="adminTerminalLogs">
+                            <p class="text-slate-400">[2026-09-25 10:14:02] <span class="text-blue-400">INFO</span> ETL Process initialized for Punjab Mandis...</p>
+                            <p class="text-slate-400">[2026-09-25 10:14:03] <span class="text-emerald-400">SUCCESS</span> Standardized 450 rows from CSV Feed.</p>
+                            <p class="text-slate-400">[2026-09-25 10:14:04] <span class="text-amber-400">WARN</span> Missing price imputed for Tomato (Nashik) using 7-day Moving Avg.</p>
+                            <p class="text-slate-400">[2026-09-25 10:14:05] <span class="text-emerald-400">SUCCESS</span> Materialized view updated for Mandi Analytics.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: CROP & MARKET SEARCH MODULE (GOVT API) -->
+        <!-- ========================================== -->
+        <section id="tab-search" class="hidden space-y-5">
+            <!-- Government of India Agmarknet API Integration Panel -->
+            <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 text-white p-5 rounded-2xl border border-emerald-700/60 shadow-lg relative overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-2 bg-emerald-800/80 border border-emerald-500/50 px-2.5 py-0.5 rounded-full text-[11px] text-emerald-200 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>OFFICIAL DATA SOURCE: DATA.GOV.IN / AGMARKNET</span>
+                        </div>
+                        <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-building-columns text-emerald-400"></i> Government of India Mandi Price API
+                        </h3>
+                        <p class="text-xs text-emerald-200/90 max-w-2xl">
+                            Real-time price telemetry streaming from Ministry of Agriculture & Farmers' Welfare covering <strong>Minimum Prices, Maximum Prices, and Modal Prices</strong> for Crops, Vegetables, and Fruits across Indian Mandis.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <button onclick="syncGovApi()" id="btnSyncGovApi" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-2 shadow-md transition-all">
+                            <i class="fa-solid fa-rotate mr-1"></i> Sync Agmarknet API
+                        </button>
+                        <button onclick="openGovApiModal()" class="bg-slate-800/90 hover:bg-slate-700 text-emerald-200 border border-emerald-600/40 font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-gear"></i> API Key Settings
+                        </button>
+                        <button onclick="downloadReport('CSV', 'Agmarknet_Govt_Price_Feed')" class="bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-xs px-3 py-2 rounded-lg transition-all" title="Export CSV">
+                            <i class="fa-solid fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- API Ingestion Telemetry Stats -->
+                <div class="mt-4 pt-3 border-t border-emerald-800/60 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs relative z-10">
+                    <div class="bg-slate-900/60 p-2.5 rounded-lg border border-emerald-800/40">
+                        <p class="text-[10px] text-emerald-300 font-medium">Endpoint Status</p>
+                        <p class="font-bold text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Live & Verified
+                        </p>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-lg border border-emerald-800/40">
+                        <p class="text-[10px] text-emerald-300 font-medium">Commodity Coverage</p>
+                        <p class="font-bold text-white mt-0.5">Crops, Veggies & Fruits</p>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-lg border border-emerald-800/40">
+                        <p class="text-[10px] text-emerald-300 font-medium">Active Mandi Records</p>
+                        <p class="font-bold text-amber-300 mt-0.5" id="apiRecordsSyncedCount">125 Records</p>
+                    </div>
+                    <div class="bg-slate-900/60 p-2.5 rounded-lg border border-emerald-800/40">
+                        <p class="text-[10px] text-emerald-300 font-medium">Price Telemetry Type</p>
+                        <p class="font-bold text-white mt-0.5">Min • Modal • Max (₹/Qtl)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Filter Card -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-filter text-agri-600"></i> Mandi Search & Price Discovery
+                        </h3>
+                        <span class="text-[11px] text-slate-400 font-normal" id="searchResultsCountBadge">(Loading records...)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="resetSearchFilters()" class="text-xs text-slate-500 hover:text-agri-700 font-medium">Reset Filters</button>
+                    </div>
+                </div>
+
+                <!-- Commodity Category Filter Pills -->
+                <div class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-xs">
+                    <span class="font-bold text-slate-600 whitespace-nowrap mr-1">Filter by Type:</span>
+                    <button onclick="filterSearchCategory('ALL', this)" class="search-cat-chip bg-emerald-700 text-white font-semibold px-3 py-1 rounded-full whitespace-nowrap transition-all shadow-xs">All Commodities</button>
+                    <button onclick="filterSearchCategory('crop', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🌾 Crops & Grains</button>
+                    <button onclick="filterSearchCategory('vegetable', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🥕 Vegetables</button>
+                    <button onclick="filterSearchCategory('fruit', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🍎 Fruits</button>
+                    <button onclick="filterSearchCategory('pulse', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🫘 Pulses & Oilseeds</button>
+                    <button onclick="filterSearchCategory('spice', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">🌶️ Spices & Others</button>
+                    <button onclick="filterSearchCategory('commercial', this)" class="search-cat-chip bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded-full whitespace-nowrap transition-all">Cash Crops</button>
+                </div>
+
+                <!-- Filter Controls Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-1">
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">State / UT</label>
+                        <select id="filterState" onchange="applySearchFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                            <option value="ALL">All States & UTs</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Commodity / Crop</label>
+                        <select id="filterCrop" onchange="applySearchFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                            <option value="ALL">All Crops, Veggies & Fruits</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Market / Mandi Type</label>
+                        <select id="filterMandiType" onchange="applySearchFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                            <option value="ALL">All Mandi Types</option>
+                            <option value="APMC Market Yard">APMC Primary Yard</option>
+                            <option value="Private Sub-Market">Private Sub-Market</option>
+                            <option value="Export Hub">Export Hub</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Sort Price By</label>
+                        <select id="filterSort" onchange="applySearchFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                            <option value="price-desc">Highest Modal Price</option>
+                            <option value="price-asc">Lowest Modal Price (Affordable)</option>
+                            <option value="traded-desc">Highest Traded Volume</option>
+                            <option value="name-asc">Commodity Name (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results Display Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="searchResultsContainer">
+                <!-- Search Price Cards Injected Dynamic JS -->
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: DATA INGESTION & ENGINEERING MODULE -->
+        <!-- ========================================== -->
+        <section id="tab-ingestion" class="hidden space-y-5">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 text-sm mb-1"><i class="fa-solid fa-gears text-agri-600 mr-2"></i>Data Ingestion & Cleaning Pipeline Simulator</h3>
+                <p class="text-xs text-slate-500">Test raw agricultural price ingestions, unit conversions, missing data handling, and duplicate removal in real time.</p>
+
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="border-2 border-dashed border-slate-300 hover:border-agri-500 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50" onclick="simulateCSVUpload()">
+                        <i class="fa-solid fa-file-csv text-2xl text-emerald-600 mb-2"></i>
+                        <p class="font-bold text-slate-700">Import Raw CSV Sample</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Click to load uncleaned Mandi dataset</p>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <p class="font-bold text-slate-700 mb-1">Manual Data Entry</p>
+                        <button onclick="openManualEntryModal()" class="w-full mt-2 bg-agri-600 hover:bg-agri-700 text-white font-medium py-1.5 rounded-lg transition-colors">
+                            + Add Single Price Record
+                        </button>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
+                        <div>
+                            <p class="font-bold text-slate-700">API Endpoint Fetcher</p>
+                            <p class="text-[11px] text-slate-500">Sync with Govt Agmarknet Sandbox</p>
+                        </div>
+                        <button onclick="simulateAPIFetch()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-1.5 rounded-lg transition-colors">
+                            Run API Sync
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline Flow Interactive Visualizer -->
+            <div class="bg-slate-900 text-white p-5 rounded-xl border border-slate-800">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-4">Live Pipeline Transformation Flow</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs relative">
+                    <div class="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
+                        <span class="text-[10px] bg-slate-700 text-slate-300 font-mono px-1.5 py-0.5 rounded">STEP 1</span>
+                        <p class="font-bold text-white mt-1">Raw Input Buffer</p>
+                        <p id="pipelineStep1" class="text-[11px] text-slate-400 mt-1">Ready for dataset...</p>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
+                        <span class="text-[10px] bg-amber-900/60 text-amber-300 font-mono px-1.5 py-0.5 rounded">STEP 2</span>
+                        <p class="font-bold text-white mt-1">Cleaning & Deduplication</p>
+                        <p id="pipelineStep2" class="text-[11px] text-slate-400 mt-1">Idle</p>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
+                        <span class="text-[10px] bg-blue-900/60 text-blue-300 font-mono px-1.5 py-0.5 rounded">STEP 3</span>
+                        <p class="font-bold text-white mt-1">Unit Normalization</p>
+                        <p id="pipelineStep3" class="text-[11px] text-slate-400 mt-1">Kg / Tonne -> ₹/Quintal</p>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-lg border border-emerald-800">
+                        <span class="text-[10px] bg-emerald-900/60 text-emerald-300 font-mono px-1.5 py-0.5 rounded">STEP 4</span>
+                        <p class="font-bold text-white mt-1">Standardized DB Store</p>
+                        <p id="pipelineStep4" class="text-[11px] text-emerald-400 mt-1">Validated & Indexed</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+                    <button id="runPipelineBtn" onclick="runPipelineTransformation()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i> Execute Pipeline Cleaning Process
+                    </button>
+                </div>
+            </div>
+
+            <!-- Processed Output Sample Table -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 text-sm mb-3">Cleaned & Standardized Ingestion Records</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="bg-slate-50 border-b text-slate-500">
+                                <th class="p-2.5">Record ID</th>
+                                <th class="p-2.5">Raw Source</th>
+                                <th class="p-2.5">Crop Name</th>
+                                <th class="p-2.5">Mandi / State</th>
+                                <th class="p-2.5">Modal Price</th>
+                                <th class="p-2.5">Unit (Normalized)</th>
+                                <th class="p-2.5">Quality Indicator</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingestedRecordsTable" class="divide-y divide-slate-100">
+                            <!-- Injected JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: PRODUCT COMPARISON MODULE (THOROUGH) -->
+        <!-- ========================================== -->
+        <section id="tab-compare" class="hidden space-y-5">
+            <!-- Header & Presets -->
+            <div class="compare-header-glow text-white p-6 rounded-2xl shadow-lg border border-emerald-600/50 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                        <div class="inline-flex items-center gap-1.5 bg-emerald-800/80 px-2.5 py-0.5 rounded-full text-[11px] text-emerald-200 font-semibold mb-1">
+                            <i class="fa-solid fa-scale-balanced text-amber-300"></i> DUAL-PRODUCT INTELLIGENCE ENGINE
+                        </div>
+                        <h2 class="text-xl font-extrabold text-white tracking-tight">Agricultural Product Comparison Studio</h2>
+                        <p class="text-xs text-emerald-100/90 mt-1 max-w-2xl">
+                            Compare any two crops, vegetables, or fruits thoroughly. Side-by-side analysis of min/modal/max prices, 30-day volatility, market arrival volumes, shelf-life risk, MSP benchmarks, inflation sensitivity, and consumer affordability.
+                        </p>
+                    </div>
+
+                    <!-- Quick Preset Comparisons -->
+                    <div class="flex flex-col sm:items-end gap-1.5">
+                        <span class="text-[11px] text-emerald-200 font-medium">Quick Comparison Presets:</span>
+                        <div class="flex flex-wrap gap-1.5 text-xs">
+                            <button onclick="setComparePreset('Tomato', 'Potato')" class="bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-500/50 px-2.5 py-1 rounded-lg text-emerald-100 font-medium transition-colors">Tomato vs Potato</button>
+                            <button onclick="setComparePreset('Wheat', 'Paddy Rice')" class="bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-500/50 px-2.5 py-1 rounded-lg text-emerald-100 font-medium transition-colors">Wheat vs Basmati Rice</button>
+                            <button onclick="setComparePreset('Mustard', 'Soybean')" class="bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-500/50 px-2.5 py-1 rounded-lg text-emerald-100 font-medium transition-colors">Mustard vs Soybean</button>
+                            <button onclick="setComparePreset('Apple', 'Banana')" class="bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-500/50 px-2.5 py-1 rounded-lg text-emerald-100 font-medium transition-colors">Apple vs Banana</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Selectors Bar -->
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-emerald-600/40 grid grid-cols-1 md:grid-cols-11 gap-3 items-center text-xs">
+                    <div class="md:col-span-5 space-y-3">
+                        <div>
+                            <label for="compareAreaASelect" class="block font-semibold text-emerald-200 mb-1">Product A Area (State / UT)</label>
+                            <select id="compareAreaASelect" onchange="updateCompareProducts('areaA')" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                                <option value="ALL">All India</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-emerald-200 mb-1">Select First Product (Product A)</label>
+                            <select id="compareProductASelect" onchange="updateCompareProducts('productA')" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-1 flex justify-center py-1">
+                        <button onclick="swapCompareProducts()" class="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold flex items-center justify-center shadow-md transition-transform hover:rotate-180" title="Swap Products">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        </button>
+                    </div>
+
+                    <div class="md:col-span-5 space-y-3">
+                        <div>
+                            <label for="compareAreaBSelect" class="block font-semibold text-blue-200 mb-1">Product B Area (State / UT)</label>
+                            <select id="compareAreaBSelect" onchange="updateCompareProducts('areaB')" class="w-full bg-slate-800 text-white border border-blue-600/60 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                                <option value="ALL">All India</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-blue-200 mb-1">Select Second Product (Product B)</label>
+                            <select id="compareProductBSelect" onchange="updateCompareProducts('productB')" class="w-full bg-slate-800 text-white border border-blue-600/60 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-agri-500 focus:outline-none">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+                    <p id="compareAreaSummary" class="md:col-span-11 text-[11px] text-emerald-100/80" aria-live="polite">Product A: All India · Product B: All India</p>
+                </div>
+            </div>
+
+            <!-- Comparison Cards Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="compareCardsOverview">
+                <!-- Dynamically populated by runProductComparison() -->
+            </div>
+
+            <!-- Thorough Specifications Matrix Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-table-list text-agri-600"></i> Thorough Side-by-Side Specification Matrix
+                        </h3>
+                        <p class="text-xs text-slate-500">Comprehensive economic, agronomical, and supply chain telemetry</p>
+                    </div>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-full">All Metrics Normalized</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 border-b border-slate-200 text-slate-600">
+                                <th class="p-3 w-1/3 font-bold">Metric / Specification</th>
+                                <th class="p-3 w-1/3 font-bold text-emerald-800 bg-emerald-50/50" id="matrixColTitleA">Product A</th>
+                                <th class="p-3 w-1/3 font-bold text-blue-800 bg-blue-50/50" id="matrixColTitleB">Product B</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="compareMatrixTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Side-by-Side Visual Comparison Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">6-Month Price Trend Overlay</h3>
+                            <p class="text-xs text-slate-500">Historical spot price trajectory comparison (₹/Qtl)</p>
+                        </div>
+                        <span class="text-xs text-slate-400 font-mono">Agmarknet History</span>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="compareTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">Multi-Factor Risk & Value Radar</h3>
+                            <p class="text-xs text-slate-500">Price, Volatility, Perishability, Volume & Affordability</p>
+                        </div>
+                        <span class="text-xs text-slate-400 font-mono">Indexed (0-100)</span>
+                    </div>
+                    <div class="h-64 flex items-center justify-center">
+                        <canvas id="compareRadarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Comparative Intelligence Verdict Box -->
+            <div class="bg-slate-900 text-slate-100 p-5 rounded-xl border border-slate-800 shadow-md space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-brain-circuit text-amber-400"></i> AI Comparative Economic Assessment
+                    </h3>
+                    <span class="text-[11px] bg-slate-800 px-2.5 py-0.5 rounded text-slate-300 font-mono">ARIMA & Macro Multi-Model</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs" id="compareAiVerdictGrid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: GEOGRAPHIC MAP & NEARBY MARKETS -->
+        <!-- ========================================== -->
+        <section id="tab-map" class="hidden space-y-5">
+            <!-- Location Selector & Controls Bar -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-map-location-dot text-agri-600"></i> Geographic Market Explorer & Affordable Mandi Finder
+                        </h3>
+                        <p class="text-xs text-slate-500">Select your area or use GPS to discover nearby mandis and affordable prices with Google Maps</p>
+                    </div>
+                    <!-- GPS Detect Button -->
+                    <button onclick="detectUserLocation()" id="btnDetectGps" class="bg-agri-600 hover:bg-agri-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm">
+                        <i class="fa-solid fa-location-crosshairs text-amber-300 animate-spin-slow"></i>
+                        <span>Detect My Current Location</span>
+                    </button>
+                </div>
+
+                <!-- Filters: Area Dropdown, Radius, Commodity -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1"><i class="fa-solid fa-city mr-1 text-slate-400"></i>Select Region / City</label>
+                        <select id="mapCitySelect" onchange="changeMapCity(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 font-medium">
+                            <option value="Delhi">Delhi NCR (Azadpur Mandi Hub)</option>
+                            <option value="Ludhiana" selected>Ludhiana (Punjab Grain Hub)</option>
+                            <option value="Nashik">Nashik (Maharashtra Veg Hub)</option>
+                            <option value="Karnal">Karnal (Haryana Basmati Hub)</option>
+                            <option value="Agra">Agra (UP Potato Hub)</option>
+                            <option value="Jaipur">Jaipur (Rajasthan Mustard Hub)</option>
+                            <option value="Bangalore">Bangalore (Karnataka South APMC)</option>
+                            <option value="Hyderabad">Hyderabad (Telangana Agri Hub)</option>
+                            <option value="Mumbai">Mumbai / Vashi (Maharashtra Mega Yard)</option>
+                            <option value="Pune">Pune (Western Ghats Mandi)</option>
+                            <option value="Ahmedabad">Ahmedabad (Gujarat Cotton & Grains)</option>
+                            <option value="Indore">Indore (MP Soybean & Pulses)</option>
+                            <option value="Lucknow">Lucknow (Central UP Market)</option>
+                            <option value="Chandigarh">Chandigarh (Tricity Agri Terminal)</option>
+                            <option value="Shimla">Shimla (HP Apple & Fruits Terminal)</option>
+                            <option value="Kochi">Kochi (Kerala Spices & Plantation)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1"><i class="fa-solid fa-bullseye mr-1 text-slate-400"></i>Search Radius</label>
+                        <select id="mapRadiusSelect" onchange="updateNearbyMarkets()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 font-medium">
+                            <option value="10">Within 10 km</option>
+                            <option value="50">Within 50 km</option>
+                            <option value="100" selected>Within 100 km</option>
+                            <option value="200">Within 200 km</option>
+                            <option value="500">Within 500 km (State)</option>
+                            <option value="ALL">All India (125 Mandis)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1"><i class="fa-solid fa-wheat-awn mr-1 text-slate-400"></i>Filter Commodity</label>
+                        <select id="mapCommoditySelect" onchange="updateNearbyMarkets()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 font-medium">
+                            <option value="ALL">All Commodities</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1"><i class="fa-solid fa-arrow-down-short-wide mr-1 text-slate-400"></i>Sort Markets By</label>
+                        <select id="mapSortSelect" onchange="updateNearbyMarkets()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-agri-500 font-medium">
+                            <option value="distance">Nearest Distance (Km)</option>
+                            <option value="price-asc" selected>Most Affordable Price (Lowest ₹)</option>
+                            <option value="price-desc">Highest Realization Price (Best for Selling)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Location Status Badge & Affordability Banner -->
+                <div id="mapAffordabilityBanner" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="badge-affordable px-2 py-0.5 rounded text-[10px] uppercase font-bold">BEST VALUE FOUND</span>
+                        <span id="mapAffordabilitySummary" class="text-emerald-900 font-medium">Scanning nearby markets for most affordable prices...</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-600">
+                        <span id="userLocationLabel"><i class="fa-solid fa-location-dot text-agri-600 mr-1"></i>Location: <strong>Ludhiana, Punjab</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaflet Interactive Map Container & Nearby Markets Panel -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Interactive Leaflet Map Visualizer -->
+                <div class="lg:col-span-7 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-map text-emerald-600"></i> Interactive Mandi Geolocation Map
+                            </h4>
+                            <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono" id="mapMarkersCountBadge">0 Markers</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] text-slate-500">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Affordable</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Moderate</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> Premium</span>
+                        </div>
+                    </div>
+
+                    <!-- Leaflet Container -->
+                    <div id="leafletMap" class="relative">
+                        <!-- Leaflet map mounted here -->
+                    </div>
+
+                    <div class="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 text-[11px] text-slate-500">
+                        <span><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> Click any pin to view live price, affordability badge & Google Maps navigation.</span>
+                        <button onclick="recenterMap()" class="text-agri-700 hover:underline font-semibold"><i class="fa-solid fa-arrows-to-dot mr-1"></i>Recenter on Me</button>
+                    </div>
+                </div>
+
+                <!-- Nearby Mandis List with Affordable Badges & Google Maps Links -->
+                <div class="lg:col-span-5 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                Nearby Mandis & Price Telemetry
+                            </h4>
+                            <span class="text-[11px] text-slate-500 font-medium">Sorted by: <span id="nearbySortLabel" class="text-slate-800 font-bold">Affordability</span></span>
+                        </div>
+
+                        <!-- Scrollable List of Nearby Mandis -->
+                        <div class="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1" id="nearbyMarketsContainer">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+                    </div>
+
+                    <div class="pt-3 mt-3 border-t border-slate-100 bg-slate-50 rounded-lg p-2.5 text-xs text-slate-600 flex items-center justify-between">
+                        <span class="text-[11px]"><i class="fa-solid fa-diamond-turn-right text-emerald-600 mr-1.5"></i> Google Maps turn-by-turn navigation enabled for all mandi hubs</span>
+                        <a href="https://maps.google.com" target="_blank" class="text-[11px] text-blue-600 hover:underline font-semibold whitespace-nowrap ml-2">Open Google Maps <i class="fa-solid fa-arrow-up-right-from-square ml-0.5"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 5: AI PRICE FORECASTING MODULE (BUDGET & MACRO) -->
+        <!-- ========================================== -->
+        <section id="tab-forecasting" class="hidden space-y-5">
+            <!-- Multi-Factor AI Forecasting Header -->
+            <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-5 rounded-2xl border border-emerald-700/50 shadow-lg space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                        <div class="inline-flex items-center gap-2 bg-emerald-800/80 px-2.5 py-0.5 rounded-full text-[11px] text-emerald-200 font-semibold mb-1">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> MULTI-FACTOR AI TIME-SERIES & MACRO MODEL
+                        </div>
+                        <h2 class="text-xl font-extrabold text-white tracking-tight">AI Price Forecast & Macro Econometric Predictor</h2>
+                        <p class="text-xs text-emerald-100/90 mt-0.5 max-w-2xl">
+                            Synergizes <strong>Govt Agmarknet Mandi API data</strong>, <strong>Indian Annual Union Budget agricultural allocations</strong>, and <strong>National Stock Exchange (NSE) Rupee/USD currency dynamics</strong> to forecast future agricultural prices with confidence envelopes.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-emerald-700/50 p-2.5 rounded-xl text-xs space-y-1">
+                        <div class="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">Active Telemetry Feeds:</div>
+                        <div class="flex items-center gap-3 text-[11px]">
+                            <span class="text-emerald-400"><i class="fa-solid fa-check text-[9px] mr-1"></i> Agmarknet Historical API</span>
+                            <span class="text-amber-400"><i class="fa-solid fa-check text-[9px] mr-1"></i> Union Budget ₹1.37L Cr</span>
+                            <span class="text-blue-400"><i class="fa-solid fa-check text-[9px] mr-1"></i> NSE USD/INR (₹83.92)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Controls Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-6 gap-3 pt-2 text-xs">
+                    <div>
+                        <label class="block font-semibold text-emerald-200 mb-1">Commodity / Crop</label>
+                        <select id="forecastCropSelect" onchange="runAiForecast()" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2 font-medium focus:ring-2 focus:ring-agri-500">
+                            <option value="Wheat">Wheat (Lok-1)</option>
+                            <option value="Tomato">Tomato (Hybrid)</option>
+                            <option value="Paddy Rice">Paddy Rice (Basmati)</option>
+                            <option value="Potato">Potato (Jyoti)</option>
+                            <option value="Cotton">Cotton (Shankar-6)</option>
+                            <option value="Mustard">Mustard (Black)</option>
+                            <option value="Apple">Apple (Royal Delicious)</option>
+                            <option value="Onion">Onion (Nasik Red)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-emerald-200 mb-1">Forecast Horizon</label>
+                        <select id="forecastHorizonSelect" onchange="runAiForecast()" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2 font-medium focus:ring-2 focus:ring-agri-500">
+                            <option value="30">Next 30 Days (Short-term)</option>
+                            <option value="60">Next 60 Days (Medium-term)</option>
+                            <option value="90">Next 90 Days (Quarterly Season)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-emerald-200 mb-1">Indian Annual Budget Impact</label>
+                        <select id="forecastBudgetSelect" onchange="runAiForecast()" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2 font-medium focus:ring-2 focus:ring-agri-500">
+                            <option value="high" selected>Enhanced Subsidies & AIF (+₹1.37L Cr)</option>
+                            <option value="baseline">Baseline Budget Outlay</option>
+                            <option value="low">Tight Fiscal / Reduced Subsidies</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-emerald-200 mb-1">NSE Rupee / USD Dynamic</label>
+                        <select id="forecastRupeeSelect" onchange="runAiForecast()" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2 font-medium focus:ring-2 focus:ring-agri-500">
+                            <option value="depreciating" selected>Rupee Depreciating (-0.8% • ₹84.40)</option>
+                            <option value="stable">Rupee Range-bound (₹83.90)</option>
+                            <option value="strengthening">Rupee Appreciating (+0.6% • ₹83.40)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-emerald-200 mb-1">Food CPI Inflation Pressure</label>
+                        <select id="forecastInflationSelect" onchange="runAiForecast()" class="w-full bg-slate-800 text-white border border-emerald-600/60 rounded-lg p-2 font-medium focus:ring-2 focus:ring-agri-500">
+                            <option value="high">High Food Basket Inflation (&gt;6.5%)</option>
+                            <option value="moderate" selected>Moderate RBI Target (5.2% - 5.8%)</option>
+                            <option value="cool">Cool / Post-Harvest Surplus (&lt;4.0%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="block font-semibold text-emerald-200 mb-1">Forecast Price Unit</span>
+                        <div class="flex items-center bg-slate-800 border border-emerald-600/60 rounded-lg p-1" id="forecastUnitGroup" role="group" aria-label="Forecast price unit">
+                            <button type="button" data-unit="qtl" aria-pressed="true" onclick="setForecastPriceUnit('qtl')" class="forecast-unit-btn flex-1 px-3 py-1.5 rounded text-emerald-900 bg-emerald-300 font-bold transition-colors">₹ / Qtl</button>
+                            <button type="button" data-unit="kg" aria-pressed="false" onclick="setForecastPriceUnit('kg')" class="forecast-unit-btn flex-1 px-3 py-1.5 rounded text-emerald-100 hover:bg-slate-700 font-semibold transition-colors">₹ / Kg</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forecast Chart & Scenario Metrics -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-agri-600"></i> Projected Future Price Trajectory vs Confidence Envelope
+                        </h3>
+                        <p class="text-xs text-slate-500">Historical API actuals paired with ARIMA machine learning projection adjusted for annual budget subsidies and rupee depreciation</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="flex items-center gap-1 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> Past API Actuals</span>
+                        <span class="flex items-center gap-1 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Forecast Model</span>
+                        <span class="flex items-center gap-1 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-amber-300 inline-block"></span> 95% Confidence Band</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+                    <div class="h-72 min-w-0">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-bold text-slate-700">3D Forecast Price Bars</h4>
+                            <span id="forecast3dUnitLabel" class="text-[10px] text-slate-500 font-mono">₹ / Qtl</span>
+                        </div>
+                        <div id="forecast3dChartWrap" class="relative h-64 overflow-hidden rounded-lg bg-slate-950" aria-label="Interactive three-dimensional forecast bar chart">
+                            <div id="forecast3dChartCanvas" class="absolute inset-0"></div>
+                            <div id="forecast3dTooltip" class="hidden absolute z-10 pointer-events-none rounded bg-slate-900/95 px-2.5 py-2 text-[11px] text-white shadow-lg"></div>
+                            <div id="forecast3dFallback" class="hidden absolute inset-0 items-center justify-center p-4 text-center text-xs text-slate-300">3D forecast chart is unavailable in this browser.</div>
+                        </div>
+                        <div id="forecast3dAxisLabels" class="grid gap-1 pt-2 text-center text-[9px] text-slate-500"></div>
+                    </div>
+                </div>
+
+                <!-- 3 Key Summary KPI Chips -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs" id="forecastKpiSummaryCards">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Deep AI Multi-Factor Econometric Commentary -->
+            <div class="bg-slate-900 text-slate-100 p-6 rounded-2xl border border-slate-800 shadow-lg space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">AI Econometric Multi-Factor Analysis Commentary</h3>
+                    </div>
+                    <span class="text-[11px] text-emerald-400 font-mono bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Data Pipeline Reconciled
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs" id="forecastAiBreakdownGrid">
+                    <!-- Populated by JS: Past Trends, Budget Impact, NSE Rupee Dynamics, Recommended Action -->
+                </div>
+            </div>
+
+            <!-- Future Projection Breakdown Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-agri-600"></i> Week-by-Week Forward Projection Table
+                    </h3>
+                    <span class="text-xs text-slate-500">Confidence Interval 95%</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 border-b border-slate-200 text-slate-600">
+                                <th class="p-3 font-semibold">Time Horizon</th>
+                                <th id="forecastPriceColumnTitle" class="p-3 font-semibold">Projected Modal (₹/Qtl)</th>
+                                <th class="p-3 font-semibold">Expected Range (Min - Max)</th>
+                                <th class="p-3 font-semibold">Budget Cushioning</th>
+                                <th class="p-3 font-semibold">Rupee / Inflation Pressure</th>
+                                <th class="p-3 font-semibold text-right">Confidence Level</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="forecastTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 6: PRICE & MARKET TREND ANALYSIS MODULE -->
+        <!-- ========================================== -->
+        <!-- ========================================== -->
+        <!-- TAB 6: PRICE & MARKET TREND ANALYSIS MODULE -->
+        <!-- ========================================== -->
+        <section id="tab-analytics" class="hidden space-y-5">
+            <!-- Top Controls & Animated Ticker -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-700"><i class="fa-solid fa-chart-line text-agri-600 mr-1"></i>Analysis Mode:</span>
+                            <select id="compareModeSelect" onchange="renderAnalyticsCharts()" class="bg-slate-50 border border-slate-300 rounded-lg p-1.5 focus:ring-2 focus:ring-agri-500 focus:outline-none font-semibold text-slate-800">
+                                <option value="crop">Crop vs Crop (Multi-Commodity Price Index)</option>
+                                <option value="market">Mandi vs Mandi (Wheat Spreads)</option>
+                                <option value="state">State vs State Averages</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-700">Focus Commodity:</span>
+                            <select id="analyticsCropSelect" onchange="changeAnalyticsCrop(this.value)" class="bg-slate-50 border border-slate-300 rounded-lg p-1.5 focus:ring-2 focus:ring-agri-500 focus:outline-none font-medium">
+                                <option value="Wheat">Wheat</option>
+                                <option value="Tomato">Tomato</option>
+                                <option value="Potato">Potato</option>
+                                <option value="Onion">Onion</option>
+                                <option value="Paddy Rice">Paddy Rice</option>
+                                <option value="Cotton">Cotton</option>
+                                <option value="Mustard">Mustard</option>
+                                <option value="Apple">Apple</option>
+                                <option value="Soybean">Soybean</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Interactive Timeframe Horizon Buttons -->
+                        <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+                            <span class="text-slate-500 text-[10px] px-1 font-medium">Horizon:</span>
+                            <button id="trendTime1M" onclick="setAnalyticsTimeframe('1M', this)" class="trend-time-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">1M</button>
+                            <button id="trendTime3M" onclick="setAnalyticsTimeframe('3M', this)" class="trend-time-btn active px-2.5 py-1 rounded-lg text-xs font-semibold bg-agri-600 text-white shadow-xs transition-all">3M</button>
+                            <button id="trendTime6M" onclick="setAnalyticsTimeframe('6M', this)" class="trend-time-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">6M</button>
+                            <button id="trendTime1Y" onclick="setAnalyticsTimeframe('1Y', this)" class="trend-time-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-all">1Y</button>
+                        </div>
+
+                        <!-- Live Trading Simulation Toggle Button -->
+                        <button onclick="toggleTrendLiveSimulation()" id="trendSimBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 transition-all shadow-xs" title="Toggle Real-Time Animated Price Ticks">
+                            <span class="market-live-dot"></span>
+                            <span id="trendSimBtnText">Live Ticks: Active</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Animated Market Trend Bar -->
+                <div class="flex items-center justify-between bg-slate-900 text-white px-3.5 py-2 rounded-lg text-xs overflow-hidden">
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-300">Live Trend Velocity:</span>
+                    </div>
+                    <div id="analyticsLiveTickerTrack" class="flex items-center gap-6 overflow-x-auto custom-scrollbar text-[11px] whitespace-nowrap pl-4">
+                        <span id="tickWheat"><i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-1"></i>Wheat (Punjab): <strong>₹2,275</strong> <span class="text-emerald-400 font-bold">+1.8%</span></span>
+                        <span id="tickTomato"><i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-1"></i>Tomato (Nashik): <strong>₹1,850</strong> <span class="text-emerald-400 font-bold">+12.5%</span></span>
+                        <span id="tickRice"><i class="fa-solid fa-arrow-trend-down text-amber-400 mr-1"></i>Paddy (Karnal): <strong>₹3,450</strong> <span class="text-amber-400 font-bold">-0.5%</span></span>
+                        <span id="tickCotton"><i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-1"></i>Cotton (Rajkot): <strong>₹6,200</strong> <span class="text-emerald-400 font-bold">+3.2%</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-wave-square text-agri-600"></i> Comparative Price Trends
+                            </h3>
+                            <p class="text-xs text-slate-500" id="analyticsChartSubtitle">Historical trajectory & momentum projection</p>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800" id="analyticsChartPill">Active Interpolation</span>
+                    </div>
+                    <div class="h-64"><canvas id="analyticsComparisonChart"></canvas></div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-chart-column text-agri-600"></i> Regional Price Differential Bar Chart
+                            </h3>
+                            <p class="text-xs text-slate-500">Spot modal prices comparison across top mandis & states</p>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">Inter-State Spreads</span>
+                    </div>
+                    <div class="h-64"><canvas id="analyticsBarChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Interactive Transport & Arbitrage Margin Simulator -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-truck-moving text-emerald-600"></i> Interactive Arbitrage & Freight Margin Simulator
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Test real-time inter-mandi trade feasibility by adjusting haulage distance and logistics cost.</p>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full" id="simProfitBadge">High Margin Viable</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center pt-2">
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                                <span>Transport Distance:</span>
+                                <span class="font-bold text-agri-700" id="simDistanceVal">350 Km</span>
+                            </div>
+                            <input type="range" id="simDistanceSlider" min="50" max="1500" step="25" value="350" oninput="updateArbitrageSimulator()" class="w-full custom-range-slider h-2 bg-slate-200 rounded-lg cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-1"><span>50 Km (Local)</span><span>1,500 Km (Inter-State)</span></div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                                <span>Diesel / Freight Rate:</span>
+                                <span class="font-bold text-slate-700" id="simFreightVal">₹4.50 / Qtl-Km</span>
+                            </div>
+                            <input type="range" id="simFreightSlider" min="1.0" max="10.0" step="0.25" value="4.5" oninput="updateArbitrageSimulator()" class="w-full custom-range-slider h-2 bg-slate-200 rounded-lg cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-1"><span>₹1.00 (Train)</span><span>₹10.00 (Express Reefer)</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Simulator Live Calculations -->
+                    <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 trend-stat-card">
+                            <p class="text-[11px] text-slate-500 font-medium">Gross Mandi Spread</p>
+                            <p class="text-lg font-extrabold text-slate-800 mt-1" id="simGrossSpread">₹570 / Qtl</p>
+                            <p class="text-[10px] text-slate-400">Delhi vs Nashik Tomato</p>
+                        </div>
+
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 trend-stat-card">
+                            <p class="text-[11px] text-slate-500 font-medium">Est. Freight & Handling</p>
+                            <p class="text-lg font-extrabold text-blue-700 mt-1" id="simFreightCost">₹158 / Qtl</p>
+                            <p class="text-[10px] text-slate-400">Transit & Tolls included</p>
+                        </div>
+
+                        <div class="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 trend-stat-card">
+                            <p class="text-[11px] text-emerald-800 font-bold">Net Profit Margin</p>
+                            <p class="text-xl font-extrabold text-emerald-700 mt-1" id="simNetMargin">+₹412 / Qtl</p>
+                            <p class="text-[10px] text-emerald-700 font-semibold" id="simRoiPct">+22.3% ROI</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Trend Profitability Recommendations -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-ranking-star text-amber-500"></i> Market Trend Profitability Analysis
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-1">Ranks crops using current mandi prices, price movement, trading spread, arrival volume, and volatility.</p>
+                    </div>
+                    <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">Live Signal Telemetry &bull; Automated Daily</span>
+                </div>
+                <div id="marketTrendRecommendations" class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-live="polite"></div>
+                <p class="text-[11px] text-slate-400 border-t border-slate-100 pt-3"><i class="fa-solid fa-circle-info mr-1"></i>Profitability is an indicative ranking, not financial advice. Farmers should include production costs; traders should include freight, storage, taxes, and spoilage before acting.</p>
+            </div>
+
+            <div class="bg-emerald-950 text-emerald-100 p-5 rounded-xl border border-emerald-900 shadow-md">
+                <h3 class="text-sm font-bold text-emerald-300 flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> Agricultural Intelligence Insights Engine
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="bg-emerald-900/60 p-3 rounded-lg border border-emerald-800">
+                        <p class="font-bold text-white mb-1">High Price Variance Alert</p>
+                        <p class="text-emerald-200 text-[11px]">Tomato prices in Nashik Mandi are currently 24% lower than Azadpur Mandi (Delhi). High trade margin potential after transport costs.</p>
+                    </div>
+                    <div class="bg-emerald-900/60 p-3 rounded-lg border border-emerald-800">
+                        <p class="font-bold text-white mb-1">Seasonal Pattern Detected</p>
+                        <p class="text-emerald-200 text-[11px]">Paddy Rice historically peaks in 3 weeks due to export demand clearance. Consider storing harvest for 15-20 days.</p>
+                    </div>
+                    <div class="bg-emerald-900/60 p-3 rounded-lg border border-emerald-800">
+                        <p class="font-bold text-white mb-1">Volatility Index Warning</p>
+                        <p class="text-emerald-200 text-[11px]">Potato prices exhibiting 18% weekly volatility due to cold storage release cycles in Uttar Pradesh.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 7: REPORTS & EXPORT MODULE -->
+        <!-- ========================================== -->
+        <section id="tab-reports" class="hidden space-y-5">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down text-agri-600"></i> Agricultural Price Report Generator
+                </h3>
+                <p class="text-xs text-slate-500">Generate formatted price summary reports, market comparison sheets, and custom analytics exports.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2">
+                        <i class="fa-solid fa-file-pdf text-red-500 text-2xl"></i>
+                        <p class="font-bold text-slate-800">State Mandi Daily Bulletin</p>
+                        <p class="text-[11px] text-slate-500">Summary of today's highest, lowest, and modal prices across all active mandis.</p>
+                        <button onclick="downloadReport('PDF', 'Daily Mandi Price Bulletin')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-1.5 rounded transition-colors mt-2">
+                            Export PDF Summary
+                        </button>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2">
+                        <i class="fa-solid fa-file-csv text-emerald-600 text-2xl"></i>
+                        <p class="font-bold text-slate-800">Raw Price Dataset (CSV)</p>
+                        <p class="text-[11px] text-slate-500">Full clean dataset formatted for Excel, Python, or academic analysis.</p>
+                        <button onclick="downloadReport('CSV', 'AgriPrice_Dataset_2026')" class="w-full bg-agri-600 hover:bg-agri-700 text-white font-semibold py-1.5 rounded transition-colors mt-2">
+                            Download CSV File
+                        </button>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2">
+                        <i class="fa-solid fa-chart-line text-blue-600 text-2xl"></i>
+                        <p class="font-bold text-slate-800">Monthly Volatility Audit Report</p>
+                        <p class="text-[11px] text-slate-500">Statistical breakdown of price spikes, missing data, and quality logs.</p>
+                        <button onclick="downloadReport('PDF', 'Monthly Volatility Audit')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-1.5 rounded transition-colors mt-2">
+                            Export Audit PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- AUTHENTICATION MODAL (LOGIN & REGISTER) -->
+    <!-- ========================================== -->
+    <div id="authModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 relative">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+
+            <div class="flex items-center space-x-4 border-b border-slate-200 pb-3">
+                <button onclick="switchModalAuthTab('login')" id="modalAuthTabLogin" class="text-base font-bold text-agri-700 border-b-2 border-agri-600 pb-1">Login</button>
+                <button onclick="switchModalAuthTab('register')" id="modalAuthTabRegister" class="text-base font-medium text-slate-500 hover:text-slate-800 pb-1">Register Account</button>
+            </div>
+
+            <!-- Modal Login Form -->
+            <form id="modalLoginForm" onsubmit="handleAuthSubmit(event, 'login')" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Email / User ID</label>
+                    <input type="email" id="modalLoginEmail" value="farmer@agriprice.org" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-agri-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="modalLoginPassword" value="demo1234" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-agri-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Role Preset</label>
+                    <select id="modalLoginRole" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-agri-500">
+                        <option value="farmer">Farmer View</option>
+                        <option value="trader">Trader / Buyer</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-agri-600 hover:bg-agri-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-md text-xs">
+                    Log In to Analytics Hub
+                </button>
+            </form>
+
+            <!-- Modal Register Form -->
+            <form id="modalRegisterForm" onsubmit="handleAuthSubmit(event, 'register')" class="hidden space-y-3 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="modalRegName" required placeholder="e.g. Rajesh Kumar" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Email Address</label>
+                    <input type="email" id="modalRegEmail" required placeholder="name@example.com" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Role</label>
+                        <select id="modalRegRole" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                            <option value="farmer">Farmer</option>
+                            <option value="trader">Trader</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">State</label>
+                        <input type="text" id="modalRegState" required placeholder="e.g. Punjab" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="modalRegPassword" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2">
+                </div>
+                <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg transition-colors shadow-md text-xs">
+                    Register & Open Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SYSTEM ARCHITECTURE OVERVIEW MODAL -->
+    <div id="archModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-diagram-project text-agri-600"></i> AgriPrice Analytics Hub - System Architecture
+                </h3>
+                <button onclick="closeArchitectureModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="bg-slate-900 text-slate-200 p-4 rounded-xl font-mono text-xs space-y-3 overflow-x-auto">
+                <div class="text-center font-bold text-emerald-400 border-b border-slate-800 pb-2">USABLE PLATFORM SYSTEM ARCHITECTURE</div>
+                <div class="flex justify-center items-center gap-2">
+                    <div class="bg-emerald-950 border border-emerald-700 p-2 rounded text-center w-36">Frontend (HTML/Tailwind/JS)</div>
+                    <span>➔</span>
+                    <div class="bg-blue-950 border border-blue-700 p-2 rounded text-center w-36">REST API Gateway</div>
+                </div>
+                <div class="text-center text-slate-500">│</div>
+                <div class="flex justify-center items-center gap-2">
+                    <div class="bg-amber-950 border border-amber-700 p-2 rounded text-center w-28">Search Engine</div>
+                    <div class="bg-amber-950 border border-amber-700 p-2 rounded text-center w-28">Analytics Service</div>
+                    <div class="bg-amber-950 border border-amber-700 p-2 rounded text-center w-28">Alert Dispatcher</div>
+                </div>
+                <div class="text-center text-slate-500">│</div>
+                <div class="flex justify-center items-center gap-2">
+                    <div class="bg-slate-800 border border-slate-600 p-2 rounded text-center w-36">ETL & Data Cleaning</div>
+                    <span>➔</span>
+                    <div class="bg-emerald-900 border border-emerald-600 p-2 rounded text-center w-36">Standardized PostgreSQL</div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-600">This BCA Project platform processes raw heterogeneous market feeds through deduplication, unit standardization (Quintal/Kg), and outlier filtering before serving indexed search and AI predictions to Farmers and Traders.</p>
+
+            <div class="flex justify-end">
+                <button onclick="closeArchitectureModal()" class="bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-slate-900">Close Diagram</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL ENTRY MODAL -->
+    <div id="manualEntryModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base">Manual Price Data Entry</h3>
+                <button onclick="closeManualEntryModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleManualSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">Crop Name</label>
+                    <input type="text" id="manualCrop" required placeholder="e.g. Mustard" class="w-full border border-slate-300 rounded p-2">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Mandi Name</label>
+                        <input type="text" id="manualMandi" required placeholder="e.g. Jaipur Mandi" class="w-full border border-slate-300 rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">State</label>
+                        <input type="text" id="manualState" required placeholder="e.g. Rajasthan" class="w-full border border-slate-300 rounded p-2">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Modal Price (₹)</label>
+                        <input type="number" id="manualPrice" required placeholder="5400" class="w-full border border-slate-300 rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-1">Unit</label>
+                        <select id="manualUnit" class="w-full border border-slate-300 rounded p-2">
+                            <option value="Quintal">Quintal</option>
+                            <option value="Kg">Kg</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeManualEntryModal()" class="bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg">Cancel</button>
+                    <button type="submit" class="bg-agri-600 text-white font-semibold px-4 py-2 rounded-lg">Submit Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GOVERNMENT OF INDIA AGMARKNET API SETTINGS MODAL -->
+    <div id="govApiModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">Government of India Agmarknet API Configuration</h3>
+                        <p class="text-[11px] text-slate-500">Ministry of Agriculture & Farmers' Welfare • Open Data Portal (data.gov.in)</p>
+                    </div>
+                </div>
+                <button onclick="closeGovApiModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">API Endpoint Resource URL</label>
+                    <input type="text" id="apiEndpointInput" readonly value="https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070" class="w-full bg-slate-100 text-slate-600 border border-slate-300 rounded p-2 text-[11px] font-mono">
+                    <p class="text-[10px] text-slate-400 mt-1">Resource ID: Daily Mandi Prices for Major Commodities across APMCs.</p>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Your data.gov.in API Key</label>
+                    <div class="relative">
+                        <input type="password" id="govApiKeyInput" placeholder="579b464db66ec23bdd000001..." class="w-full border border-slate-300 rounded p-2 text-[11px] font-mono pr-8">
+                        <button type="button" onclick="toggleApiKeyVisibility()" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-eye" id="apiKeyEyeIcon"></i>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-1">Free personal keys available at <a href="https://data.gov.in" target="_blank" class="text-blue-600 underline">data.gov.in</a>. If left empty, system utilizes auto-sync telemetry engine with verified real-time Agmarknet records.</p>
+                </div>
+
+                <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1 text-emerald-900 text-[11px]">
+                    <div class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-emerald-600"></i> Fallback Ingestion & Cache Active</div>
+                    <p>Includes built-in pre-ingested Agmarknet benchmark data for 125+ APMCs covering Crops, Vegetables, and Fruits with Min/Max/Modal prices.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t">
+                <button type="button" onclick="testGovApiConnection()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-2 rounded-lg transition-colors">
+                    <i class="fa-solid fa-plug-circle-bolt mr-1"></i> Test Connection
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeGovApiModal()" class="bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-2 rounded-lg">Cancel</button>
+                    <button type="button" onclick="saveGovApiSettings()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm">Save & Sync</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE PRICE ALERT MODAL -->
+    <div id="priceAlertModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-amber-500"></i> Create Agricultural Price Alert
+                </h3>
+                <button onclick="closePriceAlertModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleCreatePriceAlert(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Commodity / Crop</label>
+                    <select id="alertCropSelect" class="w-full bg-slate-50 border border-slate-300 rounded p-2">
+                        <option value="Wheat">Wheat (Punjab Mandi)</option>
+                        <option value="Tomato">Tomato (Nashik APMC)</option>
+                        <option value="Paddy Rice">Paddy Rice (Basmati)</option>
+                        <option value="Potato">Potato (Agra Mandi)</option>
+                        <option value="Cotton">Cotton (Rajkot Mandi)</option>
+                        <option value="Mustard">Mustard (Morena Mandi)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Condition</label>
+                        <select id="alertCondition" class="w-full bg-slate-50 border border-slate-300 rounded p-2">
+                            <option value="above">Price Rises Above (&gt;)</option>
+                            <option value="below">Price Drops Below (&lt;)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Target Price (₹/Qtl)</label>
+                        <input type="number" id="alertTargetPrice" required placeholder="e.g. 2300" class="w-full border border-slate-300 rounded p-2">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Alert Channel</label>
+                    <div class="flex items-center gap-3 pt-1">
+                        <label class="flex items-center gap-1.5"><input type="checkbox" checked class="text-agri-600 rounded"> In-App Alert</label>
+                        <label class="flex items-center gap-1.5"><input type="checkbox" checked class="text-agri-600 rounded"> SMS Notification</label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t">
+                    <button type="button" onclick="closePriceAlertModal()" class="bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg">Cancel</button>
+                    <button type="submit" class="bg-agri-600 hover:bg-agri-700 text-white font-semibold px-4 py-2 rounded-lg shadow-sm">Save Price Alert</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MANDI PRODUCT SUMMARY MODAL -->
+    <div id="mandiProductSummaryModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="mandiProductSummaryTitle" onclick="if (event.target === this) closeMandiProductSummary()">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-agri-700">Mandi product summary</p>
+                    <h2 id="mandiProductSummaryTitle" class="mt-1 text-base font-extrabold text-slate-900"></h2>
+                </div>
+                <button type="button" onclick="closeMandiProductSummary()" class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Close product summary"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="mandiProductSummaryContent" class="space-y-4"></div>
+            <div class="flex justify-end border-t border-slate-100 pt-3">
+                <button type="button" onclick="closeMandiProductSummary()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg">Close summary</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer"></div>
+
+    <script src="translations.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
